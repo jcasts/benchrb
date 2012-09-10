@@ -122,8 +122,16 @@ Quickly benchmark ruby code.
         $stderr.print "\n>> "
         $stderr.flush
         str = gets.strip
-        break if str == "break"
-        puts( run(str, opts).inspect )
+        next  if str.empty?
+        break if str == "exit"
+
+        res = begin
+          run(str, opts).inspect
+        rescue Exception => err
+          "#{err.class}: #{err.message}\n#{err.backtrace.map{|b| "\tfrom #{b}"}.join("\n")}"
+        end
+
+        puts res
       end
     end
   end
