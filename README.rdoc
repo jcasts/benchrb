@@ -1,28 +1,25 @@
-= benchrb
+= BenchRb
 
-* FIX (url)
+* http://yaks.me/benchrb
 
-== DESCRIPTION:
+== Description
 
-FIX (describe your package)
+Simple command line benchmarking for Ruby
 
-== FEATURES/PROBLEMS:
+== Synopsis
 
-* FIX (list of features or problems)
+  $ bench -n 100 "sleep 0.01"
+  $ bench # Interactive mode
 
-== SYNOPSIS:
+== Requirements
 
-  FIX (code sample of usage)
+* Ruby 1.9 or greater
 
-== REQUIREMENTS:
+== Install
 
-* FIX (list of requirements)
+* gem install benchrb
 
-== INSTALL:
-
-* FIX (sudo gem install, anything else)
-
-== DEVELOPERS:
+== Developers
 
 After checking out the source, run:
 
@@ -31,11 +28,11 @@ After checking out the source, run:
 This task will install any missing dependencies, run the tests/specs,
 and generate the RDoc.
 
-== LICENSE:
+== License
 
 (The MIT License)
 
-Copyright (c) 2012 FIX
+Copyright (c) 2012 Jeremie Castagna
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
