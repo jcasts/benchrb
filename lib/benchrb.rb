@@ -4,9 +4,18 @@ require 'benchmark'
 
 $benchrb_binding = binding
 
+##
+# BenchRb is a simple wrapper around Ruby's Benchmark module which allows
+# easily running a benchmark N times and getting averages, min, max, etc.
+
 class BenchRb
+
+  # Gem version
   VERSION = '1.0.0'
 
+
+  ##
+  # Parse command line arguments.
 
   def self.parse_args argv
     require 'optparse'
@@ -69,10 +78,30 @@ Quickly benchmark ruby code.
   end
 
 
+  ##
+  # Run from the command line.
+
   def self.run_cmd argv=ARGV
-    puts run(*parse_args(argv)).inspect
+    res = run(*parse_args(argv))
+    puts res.inspect if res
   end
 
+
+  ##
+  # Run and benchmark a Ruby String or block. Returns a BenchRb instance.
+  # If no Ruby String or block is given, runs in a loop while expecting
+  # input from $stdin.
+  #
+  # Supported options:
+  #   :binding:: The binding to run the String as (not for blocks)
+  #   :count:: The number of times to run the given code
+  #
+  # Examples:
+  #   BenchRb.run "sleep 0.01", :count => 10
+  #
+  #   BenchRb.run :count => 10 do
+  #     sleep 0.01
+  #   end
 
   def self.run rb_str=nil, opts={}, &block
     rb_str, opts = nil, rb_str if Hash === rb_str
@@ -87,16 +116,22 @@ Quickly benchmark ruby code.
 
     else
       # Interactive mode
-      trap(:INT){ exit 1 }
+      trap(:INT){ puts "\n"; exit 1 }
 
       loop do
         $stderr.print "\n>> "
         $stderr.flush
-        puts( run(gets, opts).inspect )
+        str = gets.strip
+        break if str == "break"
+        puts( run(str, opts).inspect )
       end
     end
   end
 
+
+  ##
+  # Benchmark a block of code with a given count. Count defaults to 1.
+  # Returns a BenchRb instance.
 
   def self.bench count=nil, &block
     count  = 1 if !count || count < 1
@@ -113,14 +148,22 @@ Quickly benchmark ruby code.
   end
 
 
+  ##
+  # Create a new BenchRb instance for recording results.
+
   def initialize
     @map = %w{user system total real}
     @min = [0,0,0,0]
     @max = [0,0,0,0]
     @avg = [0,0,0,0]
+    @tot = [0,0,0,0]
     @count = 0
   end
 
+
+  ##
+  # Append a result. Result should be an Array of the following form:
+  #   [user_time, system_time, total_time, real_time]
 
   def add results
     if @count == 0
@@ -135,6 +178,7 @@ Quickly benchmark ruby code.
       @avg[index] = ((@avg[index] * @count) + num) / (@count + 1.0)
       @min[index] = num if @min[index] > num
       @max[index] = num if @max[index] < num
+      @tot[index] += num
     end
 
     @count += 1
@@ -142,12 +186,16 @@ Quickly benchmark ruby code.
   end
 
 
+  ##
+  # Inspect the instance. Renders the output grid as a String.
+
   def inspect
     grid = [
       ["   ", @map.dup],
       ["avg", @avg.map{|num| num_to_str(num)} ],
       ["min", @min.map{|num| num_to_str(num)} ],
-      ["max", @max.map{|num| num_to_str(num)} ]
+      ["max", @max.map{|num| num_to_str(num)} ],
+      ["tot", @tot.map{|num| num_to_str(num)} ]
     ]
 
     longest = 9
@@ -163,7 +211,8 @@ Quickly benchmark ruby code.
   end
 
 
-  private
+  ##
+  # Turn a number into a padded String with a target length.
 
   def num_to_str num, len=9
     str = num.to_f.round(len-2).to_s
@@ -179,8 +228,27 @@ end
 
 
 class Object
-  def bench count=1, &block
-    return unless block_given?
-    BenchRb.run :count => count, &block
+  ##
+  # Convenience method for benchmarking inline.
+  #   bench 100, "sleep 0.01"
+  #   bench{ sleep 0.01 }
+  #
+  # Interactive mode with the current binding:
+  #   bench binding
+
+  def bench *args, &block
+    count   = 1
+    binding = nil
+    rb_str  = nil
+
+    args.each do |val|
+      case val
+      when String  then rb_str  = val
+      when Integer then count   = val
+      when Binding then binding = val
+      end
+    end
+
+    BenchRb.run rb_str, :count => count, :binding => binding, &block
   end
 end
