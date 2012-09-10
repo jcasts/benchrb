@@ -8,8 +8,8 @@ Simple command line benchmarking for Ruby
 
 == Synopsis
 
-  $ bench -n 100 "sleep 0.01"
-  $ bench # Interactive mode
+  $ benchrb -n 100 "sleep 0.01"
+  $ benchrb # Interactive mode
 
 == Requirements
 
