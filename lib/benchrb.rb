@@ -224,20 +224,22 @@ Quickly benchmark ruby code.
 
   def num_to_str num, len=9
     str = num.to_f.round(len-2).to_s
+    sci = !str.index("e").nil?
 
     rnd = len - str.index(".") - 1
-    str = num.to_f.round(rnd).to_s.ljust(len, "0") if rnd > 0
+    str = num.to_f.round(rnd).to_s.ljust(len, "0") if rnd > 0 && !sci
 
     return str if str.length == len
 
-    str.split(".", 2)[0].rjust(len, " ")
+    str = str.split(".", 2)[0] if !sci
+    str.rjust(len, " ")
   end
 end
 
 
 class Object
   ##
-  # Convenience method for benchmarking inline.
+  # Convenience method for printing benchmarks inline with code.
   #   bench 100, "sleep 0.01"
   #   bench{ sleep 0.01 }
   #
@@ -257,6 +259,7 @@ class Object
       end
     end
 
-    BenchRb.run rb_str, :count => count, :binding => binding, &block
+    puts BenchRb.run(rb_str, :count => count, :binding => binding, &block).inspect
+    puts "Caller: #{caller[0]}"
   end
 end
