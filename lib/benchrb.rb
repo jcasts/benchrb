@@ -53,8 +53,8 @@ Quickly benchmark ruby code.
         options[:count] = count
       end
 
-      opt.on('-r MODULE', String, 'Same as `ruby -r\'') do |libs|
-        libs.each{|lib| require lib }
+      opt.on('-r MODULE', String, 'Same as `ruby -r\'') do |lib|
+        require lib
       end
 
       opt.on('-I PATH', String, 'Specify $LOAD_PATH directory') do |path|
@@ -115,29 +115,7 @@ Quickly benchmark ruby code.
       self.bench(opts[:count], &block)
 
     else
-      # Interactive mode
-      trap(:INT){ puts "\n"; exit 1 }
-
-      puts "Enter `exit' to quit"
-      console = Console.new :prompt => "benchrb> "
-
-      loop do
-        str = console.read_line.strip
-        next  if str.empty?
-        break if str == "exit"
-
-        res = begin
-          run(str, opts).inspect
-
-        rescue SystemExit, SignalException
-          raise
-
-        rescue Exception => err
-          "#{err.class}: #{err.message}\n#{err.backtrace.map{|b| "\tfrom #{b}"}.join("\n")}"
-        end
-
-        puts res
-      end
+      self.console opts
     end
   end
 
@@ -162,6 +140,53 @@ Quickly benchmark ruby code.
 
 
   ##
+  # Interactive console mode. Takes the same options as BenchRb.run.
+
+  def self.console opts={}
+    trap(:INT){ puts "\n"; exit 1 }
+
+    puts "Enter `exit' to quit"
+    puts "End lines with `\\' to run multiple lines"
+    puts "Use `-n NUM' to change the benchmark count"
+
+    console = Console.new :prompt => "benchrb> "
+
+    ruby = ""
+
+    loop do
+      str = console.read_line.strip
+      next  if str.empty?
+      break if str == "exit"
+
+      if str =~ /^-n *(\d+)$/
+        opts[:count] = $1.to_i
+        puts "Count set to #{$1}"
+        next
+      end
+
+      ruby << str
+      ruby[-1] = "\n" and next if ruby[-1] == "\\"
+
+      res = begin
+        run(ruby, opts).inspect
+
+      rescue SystemExit, SignalException
+        raise
+
+      rescue Exception => err
+        "#{err.class}: #{err.message}\n#{err.backtrace.map{|b| "\tfrom #{b}"}.
+          join("\n")}"
+      end
+
+      ruby = ""
+      puts res
+    end
+  end
+
+
+  attr_accessor :value
+
+  ##
   # Create a new BenchRb instance for recording results.
 
   def initialize
@@ -171,6 +196,7 @@ Quickly benchmark ruby code.
     @avg = [0,0,0,0]
     @tot = [0,0,0,0]
     @count = 0
+    @value = nil
   end
 
 
@@ -253,6 +279,9 @@ Quickly benchmark ruby code.
 
 
     def read_line
+      old_state = `stty -g`
+      system "stty raw -echo"
+
       hindex = @history.length
       cpos   = write_line ""
 
@@ -342,6 +371,9 @@ Quickly benchmark ruby code.
         @history.length > @max_history
 
       line
+
+    ensure
+      system "stty #{old_state}"
     end
 
 
@@ -371,9 +403,9 @@ Quickly benchmark ruby code.
 
       begin
         # save previous state of stty
-        old_state = `stty -g`
+        #old_state = `stty -g`
         # disable echoing and enable raw (not having to press enter)
-        system "stty raw -echo"
+        #system "stty raw -echo"
         c = $stdin.getc.chr
         # gather next two characters of special keys
         if(c=="\e")
@@ -389,9 +421,9 @@ Quickly benchmark ruby code.
 
       rescue => ex
         puts "#{ex.class}: #{ex.message}"
-      ensure
+      #ensure
         # restore previous state of stty
-        system "stty #{old_state}"
+        #system "stty #{old_state}"
       end
 
       return c
