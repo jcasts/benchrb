@@ -243,18 +243,16 @@ Quickly benchmark ruby code.
 
   class Console
 
-    attr_accessor :prompt
+    attr_accessor :prompt, :history, :max_history
 
     def initialize opts={}
-      @history = []
-      @prompt = opts[:prompt] || ">> "
+      @max_history = opts[:max_history] || 1000
+      @history     = Array(opts[:history])
+      @prompt      = opts[:prompt] || ">> "
     end
 
 
     def read_line
-      old_state = `stty -g`
-      system "stty raw -echo"
-
       hindex = @history.length
       cpos   = write_line ""
 
@@ -313,7 +311,7 @@ Quickly benchmark ruby code.
             cpos = set_cpos(cpos - 1)
           end
 
-        when "\r", "\n"
+        when "\r", "\n" # Enter - commit line
           line = disp
           $stdout.puts ch
           break
@@ -327,6 +325,8 @@ Quickly benchmark ruby code.
             set_cpos cpos
           end
 
+        when "\t" # Tab
+
         else
           wpos = cpos - @prompt.length - 1
           disp[wpos,0] = ch
@@ -338,10 +338,10 @@ Quickly benchmark ruby code.
       end
 
       @history << line unless line.strip.empty? || @history[-1] == line
+      @history = @history[@history.length-@max_history..-1] if
+        @history.length > @max_history
+
       line
-    ensure
-      # restore previous state of stty
-      system "stty #{old_state}"
     end
 
 
@@ -371,9 +371,9 @@ Quickly benchmark ruby code.
 
       begin
         # save previous state of stty
-        #old_state = `stty -g`
+        old_state = `stty -g`
         # disable echoing and enable raw (not having to press enter)
-        #system "stty raw -echo"
+        system "stty raw -echo"
         c = $stdin.getc.chr
         # gather next two characters of special keys
         if(c=="\e")
@@ -389,9 +389,9 @@ Quickly benchmark ruby code.
 
       rescue => ex
         puts "#{ex.class}: #{ex.message}"
-      #ensure
+      ensure
         # restore previous state of stty
-      #  system "stty #{old_state}"
+        system "stty #{old_state}"
       end
 
       return c
