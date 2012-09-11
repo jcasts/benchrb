@@ -8,18 +8,18 @@ Simple command line benchmarking for Ruby
 
 == Synopsis
 
-From the command line:
+=== From the command line:
 
   $ benchrb -n 100 "sleep 0.01"
   $ benchrb # Interactive mode
 
-From Ruby:
-* Start an interactive prompt inline
+=== From Ruby:
+Start an interactive prompt inline
 
   # Runs each command 100 times in the current binding
   bench(100, binding)
 
-* Run a single benchmark
+Run a single benchmark
 
   bench do
     # code to benchmark here
