@@ -143,32 +143,67 @@ Quickly benchmark ruby code.
   # Interactive console mode. Takes the same options as BenchRb.run.
 
   def self.console opts={}
+    help = [
+      "`exit'   to quit",
+      "`help'   for help screen",
+      "`pause'  to stop benchmarking temporarily",
+      "`bench'  to start benchmarking again",
+      "`-n NUM' to change the benchmark count",
+      "End lines with `\\' to run multiple lines"
+    ]
+
     trap(:INT){ puts "\n"; exit 1 }
 
-    puts "Enter `exit' to quit"
-    puts "End lines with `\\' to run multiple lines"
-    puts "Use `-n NUM' to change the benchmark count"
+    $stderr.puts help.join("\n")
+    $stderr.puts "\n"
 
-    console = Console.new :prompt => "benchrb> "
+    console = Console.new :prompt => "bench> "
+    paused  = false
 
     ruby = ""
 
     loop do
       str = console.read_line.strip
-      next  if str.empty?
-      break if str == "exit"
 
-      if str =~ /^-n *(\d+)$/
+      case str
+      when ""
+        next
+
+      when "exit"
+        break
+
+      when "help"
+        $stderr.puts help.join("\n")
+        $stderr.puts "\n"
+        next
+
+      when "pause"
+        paused = true
+        console.prompt = "ruby> "
+        next
+
+      when "bench"
+        paused = false
+        console.prompt = "bench> "
+        next
+
+      when /^-n *(\d+)$/
         opts[:count] = $1.to_i
         puts "Count set to #{$1}"
         next
+
+      else
+        ruby << str
       end
 
-      ruby << str
       ruby[-1] = "\n" and next if ruby[-1] == "\\"
 
       res = begin
-        run(ruby, opts).inspect
+        if paused
+          "=> #{eval(ruby, opts[:binding] || $benchrb_binding).inspect}"
+        else
+          run(ruby, opts).inspect
+        end
 
       rescue SystemExit, SignalException
         raise
