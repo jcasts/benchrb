@@ -118,10 +118,10 @@ Quickly benchmark ruby code.
       # Interactive mode
       trap(:INT){ puts "\n"; exit 1 }
 
+      console = Console.new
+
       loop do
-        $stderr.print "\n>> "
-        $stderr.flush
-        str = gets.strip
+        str = console.read_line.strip
         next  if str.empty?
         break if str == "exit"
 
@@ -233,6 +233,106 @@ Quickly benchmark ruby code.
 
     str = str.split(".", 2)[0] if !sci
     str.rjust(len, " ")
+  end
+
+
+  class Console
+    def initialize
+      @history = []
+      @prompt = ">> "
+    end
+
+    def read_line
+      $stderr.print "\n#{@prompt}"
+      $stderr.flush
+      hindex = @history.length
+      cpos   = @prompt.length
+
+      line = ""
+
+      loop do
+        ch = read_char
+
+        case ch
+        when "\e[A" #Up Arrow
+          hindex = hindex - 1
+          hindex = 0 if hindex < 0
+          cpos = write_line @history[hindex] if @history[hindex]
+
+        when "\e[B" #Down Arrow
+          hindex = hindex + 1
+          hindex = @history.length if hindex > @history.length
+          disp = hindex == @history.length ? line : @history[hindex]
+          cpos = write_line disp
+
+        when "\e[C" #Right Arrow
+
+        when "\e[D" #Left Arrow
+          if cpos > @prompt.length
+            cpos = cpos - 1
+            $stdout.print "\e[#{cpos}G"
+          end
+
+        when "\r", "\n"
+          $stdout.print ch
+          $stdout.flush
+          break
+
+        else
+          wpos = cpos - @prompt.length
+          $stdout.print ch
+          line[wpos,0] = ch
+          cpos += 1
+        end
+
+        $stdout.flush
+      end
+
+      line = @history[hindex] if hindex < @history.length
+      @history << line unless @history[-1] == line
+      line
+    end
+
+
+    def write_line line
+      text = "#{@prompt}#{line}"
+      $stdout.print "\e[2K\e[0G#{text}"
+      $stdout.flush
+      text.length
+    end
+
+
+    def read_char
+      c = ""
+
+      begin
+        # save previous state of stty
+        old_state = `stty -g`
+        # disable echoing and enable raw (not having to press enter)
+        system "stty raw -echo"
+        c = $stdin.getc.chr
+        # gather next two characters of special keys
+        if(c=="\e")
+          extra_thread = Thread.new{
+            c = c + $stdin.getc.chr
+            c = c + $stdin.getc.chr
+          }
+          # wait just long enough for special keys to get swallowed
+          extra_thread.join(0.00001)
+          # kill thread so not-so-long special keys don't wait on getc
+          extra_thread.kill
+        end
+        Process.kill "INT", Process.pid if c == "\u0003"
+
+      rescue => ex
+        puts "#{ex.class}: #{ex.message}"
+      ensure
+        # restore previous state of stty
+        system "stty #{old_state}"
+      end
+
+      return c
+    end
   end
 end
 
