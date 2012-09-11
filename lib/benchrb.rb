@@ -242,55 +242,96 @@ Quickly benchmark ruby code.
       @prompt = ">> "
     end
 
+
     def read_line
-      $stderr.print "\n#{@prompt}"
-      $stderr.flush
+      old_state = `stty -g`
+      system "stty raw -echo"
+
       hindex = @history.length
-      cpos   = @prompt.length
+      cpos   = write_line ""
 
       line = ""
+      disp = line
 
       loop do
         ch = read_char
 
         case ch
-        when "\e[A" #Up Arrow
-          hindex = hindex - 1
-          hindex = 0 if hindex < 0
-          cpos = write_line @history[hindex] if @history[hindex]
+        when "\e"
+          # Got escape by itself. Do nothing.
 
-        when "\e[B" #Down Arrow
-          hindex = hindex + 1
-          hindex = @history.length if hindex > @history.length
-          disp = hindex == @history.length ? line : @history[hindex]
+        when "\u0001" # ctrl+A - BOL
+          cpos = set_wpos(0)
+
+        when "\u0005" # ctrl+E - EOL
+          cpos = set_wpos(disp.length)
+
+        when "\u0017" # ctrl+W - erase word
+          i = disp.rstrip.rindex(" ")
+          disp = i ? disp[0..i] : ""
           cpos = write_line disp
 
-        when "\e[C" #Right Arrow
+        when "\u0015" # ctrl+U - erase all
+          disp = ""
+          cpos = write_line disp
 
-        when "\e[D" #Left Arrow
-          if cpos > @prompt.length
+        when "\u0003" # ctrl+C - SIGINT
+          Process.kill "INT", Process.pid
+          break
+
+        when "\e[A", "\u0010" # Up Arrow, Ctrl+P
+          hindex = hindex - 1
+          hindex = 0 if hindex < 0
+          if @history[hindex]
+            disp = @history[hindex].dup
+            cpos = write_line disp
+          end
+
+        when "\e[B", "\u000E" # Down Arrow, Ctrl+N
+          hindex = hindex + 1
+          hindex = @history.length if hindex > @history.length
+          disp = hindex == @history.length ? line : @history[hindex].dup
+          cpos = write_line disp
+
+        when "\e[C", "\u0006" # Right Arrow, Ctrl+F
+          if cpos < (@prompt.length + disp.length + 1)
+            cpos = cpos + 1
+            $stdout.print "\e[#{cpos}G"
+          end
+
+        when "\e[D", "\u0002" # Left Arrow, Ctrl+B
+          if cpos > @prompt.length + 1
             cpos = cpos - 1
             $stdout.print "\e[#{cpos}G"
           end
 
         when "\r", "\n"
-          $stdout.print ch
-          $stdout.flush
+          line = disp
+          $stdout.puts ch
           break
 
+        when "\u007F", "\b" # Delete
+          if cpos > @prompt.length + 1
+            cpos = cpos - 1
+            wpos = cpos - @prompt.length - 1
+            disp[wpos,1] = ""
+            write_line disp
+          end
+
         else
-          wpos = cpos - @prompt.length
-          $stdout.print ch
-          line[wpos,0] = ch
-          cpos += 1
+          wpos = cpos - @prompt.length - 1
+          disp[wpos,0] = ch
+          cpos = write_line disp
         end
 
         $stdout.flush
       end
 
-      line = @history[hindex] if hindex < @history.length
-      @history << line unless @history[-1] == line
+      @history << line unless line.strip.empty? || @history[-1] == line
       line
+    ensure
+      # restore previous state of stty
+      system "stty #{old_state}"
     end
 
 
@@ -298,7 +339,14 @@ Quickly benchmark ruby code.
       text = "#{@prompt}#{line}"
       $stdout.print "\e[2K\e[0G#{text}"
       $stdout.flush
-      text.length
+      text.length + 1
+    end
+
+
+    def set_wpos num
+      pos = @prompt.length + num + 1
+      $stdout.print "\e[#{pos}G"
+      pos
     end
 
 
@@ -307,9 +355,9 @@ Quickly benchmark ruby code.
 
       begin
         # save previous state of stty
-        old_state = `stty -g`
+        #old_state = `stty -g`
         # disable echoing and enable raw (not having to press enter)
-        system "stty raw -echo"
+        #system "stty raw -echo"
         c = $stdin.getc.chr
         # gather next two characters of special keys
         if(c=="\e")
@@ -318,17 +366,16 @@ Quickly benchmark ruby code.
             c = c + $stdin.getc.chr
           }
           # wait just long enough for special keys to get swallowed
-          extra_thread.join(0.00001)
+          extra_thread.join(0.0001)
           # kill thread so not-so-long special keys don't wait on getc
           extra_thread.kill
         end
-        Process.kill "INT", Process.pid if c == "\u0003"
 
       rescue => ex
         puts "#{ex.class}: #{ex.message}"
-      ensure
+      #ensure
         # restore previous state of stty
-        system "stty #{old_state}"
+      #  system "stty #{old_state}"
       end
 
       return c
