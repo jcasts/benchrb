@@ -118,7 +118,8 @@ Quickly benchmark ruby code.
       # Interactive mode
       trap(:INT){ puts "\n"; exit 1 }
 
-      console = Console.new
+      puts "Enter `exit' to quit"
+      console = Console.new :prompt => "benchrb> "
 
       loop do
         str = console.read_line.strip
@@ -127,6 +128,10 @@ Quickly benchmark ruby code.
 
         res = begin
           run(str, opts).inspect
+
+        rescue SystemExit, SignalException
+          raise
+
         rescue Exception => err
           "#{err.class}: #{err.message}\n#{err.backtrace.map{|b| "\tfrom #{b}"}.join("\n")}"
         end
@@ -237,9 +242,12 @@ Quickly benchmark ruby code.
 
 
   class Console
-    def initialize
+
+    attr_accessor :prompt
+
+    def initialize opts={}
       @history = []
-      @prompt = ">> "
+      @prompt = opts[:prompt] || ">> "
     end
 
 
