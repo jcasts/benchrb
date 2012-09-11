@@ -219,8 +219,6 @@ Quickly benchmark ruby code.
   end
 
 
-  attr_accessor :value
-
   ##
   # Create a new BenchRb instance for recording results.
 
@@ -231,7 +229,6 @@ Quickly benchmark ruby code.
     @avg = [0,0,0,0]
     @tot = [0,0,0,0]
     @count = 0
-    @value = nil
   end
 
 
