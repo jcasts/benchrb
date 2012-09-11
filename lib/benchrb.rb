@@ -272,10 +272,11 @@ Quickly benchmark ruby code.
           cpos = write_line disp
 
         when "\u0015" # ctrl+U - erase all
-          disp = ""
+          disp.clear
           cpos = write_line disp
 
         when "\u0003" # ctrl+C - SIGINT
+          set_cpos(0)
           Process.kill "INT", Process.pid
           break
 
@@ -301,8 +302,7 @@ Quickly benchmark ruby code.
 
         when "\e[D", "\u0002" # Left Arrow, Ctrl+B
           if cpos > @prompt.length + 1
-            cpos = cpos - 1
-            $stdout.print "\e[#{cpos}G"
+            cpos = set_cpos(cpos - 1)
           end
 
         when "\r", "\n"
@@ -316,12 +316,14 @@ Quickly benchmark ruby code.
             wpos = cpos - @prompt.length - 1
             disp[wpos,1] = ""
             write_line disp
+            set_cpos cpos
           end
 
         else
           wpos = cpos - @prompt.length - 1
           disp[wpos,0] = ch
-          cpos = write_line disp
+          write_line disp
+          cpos = set_cpos(cpos + 1)
         end
 
         $stdout.flush
@@ -347,6 +349,12 @@ Quickly benchmark ruby code.
       pos = @prompt.length + num + 1
       $stdout.print "\e[#{pos}G"
       pos
+    end
+
+
+    def set_cpos num
+      $stdout.print "\e[#{num}G"
+      num
     end
 
 
